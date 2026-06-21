@@ -116,7 +116,8 @@ export default function Home() {
     if (typeFilter === 'sanpai' && p.facility.license_type?.includes('特別管理')) return false
     if (typeFilter === 'tokubetsu' && !p.facility.license_type?.includes('特別管理')) return false
     if (qualifyingSiteIds !== null) {
-      if (!p.site || !qualifyingSiteIds.has(p.site.id)) return false
+      // siteがある場合はsite_idで判定、siteがない（本社ピン）場合は除外しない
+      if (p.site && !qualifyingSiteIds.has(p.site.id)) return false
     }
     return true
   }), [pins, search, typeFilter, qualifyingSiteIds])
