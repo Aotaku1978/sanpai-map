@@ -14,12 +14,46 @@ export type PinItem = {
   site: FacilitySite | null
 }
 
+type ProcessingCapacity = {
+  id: number
+  facility_site_id: number
+  waste_type: string
+  facility_sites?: { facility_id: number }
+}
+
+const WASTE_TYPES = [
+  '廃プラスチック類',
+  '金属くず',
+  '紙くず',
+  '木くず',
+  '繊維くず',
+  'ガラスくず・コンクリートくず',
+  'がれき類',
+  '廃油',
+  '汚泥',
+  '感染性廃棄物',
+]
+
+const chip = (active: boolean): React.CSSProperties => ({
+  fontSize: 11,
+  padding: '3px 10px',
+  borderRadius: 20,
+  cursor: 'pointer',
+  userSelect: 'none',
+  border: active ? '1px solid #0F6E56' : '1px solid #d1d5db',
+  background: active ? '#1D9E75' : '#f9fafb',
+  color: active ? '#fff' : '#374151',
+  whiteSpace: 'nowrap',
+})
+
 export default function Home() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [sites, setSites] = useState<FacilitySite[]>([])
+  const [capacities, setCapacities] = useState<ProcessingCapacity[]>([])
   const [selected, setSelected] = useState<PinItem | null>(null)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'sanpai' | 'tokubetsu'>('all')
+  const [selectedWastes, setSelectedWastes] = useState<string[]>([])
 
   useEffect(() => {
     supabase.from('facilities').select('*').then(({ data }) => {
@@ -28,13 +62,16 @@ export default function Home() {
     supabase.from('facility_sites').select('*, facilities(*)').then(({ data }) => {
       if (data) setSites(data)
     })
+    supabase.from('processing_capacities').select('*, facility_sites(facility_id)').then(({ data }) => {
+      if (data) setCapacities(data)
+    })
   }, [])
 
-  const facilityMap = useMemo(() => {
-    const m = new Map<number, Facility>()
-    facilities.forEach(f => m.set(f.id, f))
-    return m
-  }, [facilities])
+  const toggleWaste = (type: string) => {
+    setSelectedWastes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    )
+  }
 
   const sitesByFacilityId = useMemo(() => {
     const m = new Map<number, FacilitySite[]>()
@@ -46,9 +83,19 @@ export default function Home() {
     return m
   }, [sites])
 
+  const qualifyingSiteIds = useMemo(() => {
+    if (selectedWastes.length === 0) return null
+    const result = new Set<number>()
+    capacities.forEach(c => {
+      if (selectedWastes.includes(c.waste_type)) {
+        result.add(c.facility_site_id)
+      }
+    })
+    return result
+  }, [capacities, selectedWastes])
+
   const pins = useMemo((): PinItem[] => {
     const result: PinItem[] = []
-
     facilities.forEach(f => {
       const facilSites = sitesByFacilityId.get(f.id)
       if (facilSites && facilSites.length > 0) {
@@ -61,7 +108,6 @@ export default function Home() {
         result.push({ pinId: `facility-${f.id}`, lat: f.lat, lon: f.lon, facility: f, site: null })
       }
     })
-
     return result
   }, [facilities, sitesByFacilityId])
 
@@ -69,20 +115,50 @@ export default function Home() {
     if (search && !p.facility.name.includes(search)) return false
     if (typeFilter === 'sanpai' && p.facility.license_type?.includes('特別管理')) return false
     if (typeFilter === 'tokubetsu' && !p.facility.license_type?.includes('特別管理')) return false
+    if (qualifyingSiteIds !== null) {
+      if (!p.site || !qualifyingSiteIds.has(p.site.id)) return false
+    }
     return true
-  }), [pins, search, typeFilter])
+  }), [pins, search, typeFilter, qualifyingSiteIds])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'sans-serif' }}>
-      <header style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', background: '#fff', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>優良産廃処理業者マップ</h1>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="社名で検索..." style={{ fontSize: 13, padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 6, width: 180 }} />
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} style={{ fontSize: 13, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6 }}>
-          <option value="all">すべての業種</option>
-          <option value="sanpai">産業廃棄物処分業</option>
-          <option value="tokubetsu">特別管理産業廃棄物処分業</option>
-        </select>
-        <span style={{ fontSize: 12, color: '#6b7280' }}>{filtered.length}件表示中</span>
+      <header style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 style={{ fontSize: 15, fontWeight: 600, margin: 0, whiteSpace: 'nowrap' }}>優良産廃処理業者マップ</h1>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="社名で検索..."
+            style={{ fontSize: 13, padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 6, width: 180 }}
+          />
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}
+            style={{ fontSize: 13, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6 }}
+          >
+            <option value="all">すべての業種</option>
+            <option value="sanpai">産業廃棄物処分業</option>
+            <option value="tokubetsu">特別管理産業廃棄物処分業</option>
+          </select>
+          <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>{filtered.length}件表示中</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, whiteSpace: 'nowrap' }}>受入品目：</span>
+          {WASTE_TYPES.map(type => (
+            <span key={type} style={chip(selectedWastes.includes(type))} onClick={() => toggleWaste(type)}>
+              {type}
+            </span>
+          ))}
+          {selectedWastes.length > 0 && (
+            <span
+              style={{ fontSize: 11, color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', marginLeft: 4 }}
+              onClick={() => setSelectedWastes([])}
+            >
+              クリア
+            </span>
+          )}
+        </div>
       </header>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1 }}>
@@ -113,7 +189,11 @@ export default function Home() {
           )}
           <div style={{ borderTop: '1px solid #e5e7eb' }}>
             {filtered.map(p => (
-              <div key={p.pinId} onClick={() => setSelected(p)} style={{ padding: '8px 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selected?.pinId === p.pinId ? '#f0fdf4' : '#fff', fontSize: 12 }}>
+              <div
+                key={p.pinId}
+                onClick={() => setSelected(p)}
+                style={{ padding: '8px 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selected?.pinId === p.pinId ? '#f0fdf4' : '#fff', fontSize: 12 }}
+              >
                 <div style={{ fontWeight: 500 }}>{p.facility.name}</div>
                 {p.site?.site_name && (
                   <div style={{ color: '#1D9E75', fontSize: 11 }}>{p.site.site_name}</div>
