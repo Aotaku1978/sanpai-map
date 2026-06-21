@@ -11,3 +11,14 @@ export type Facility = {
   expire_date: string | null
   pref: string | null
 }
+
+export type FacilitySite = {
+  id: number
+  facility_id: number
+  site_name: string | null
+  address: string | null
+  lat: number | null
+  lon: number | null
+  site_type: string | null
+  facilities?: Facility
+}
