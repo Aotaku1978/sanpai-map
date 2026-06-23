@@ -255,19 +255,32 @@ export default function Home() {
           </div>
         </div>
 
-        {/* スライドイン詳細パネル */}
+        {/* 半透明バックドロップ */}
+        {selected && (
+          <div
+            onClick={() => setSelected(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.25)',
+              zIndex: 999,
+            }}
+          />
+        )}
+
+        {/* スライドイン詳細パネル（fixed オーバーレイ） */}
         <div style={{
-          position: 'absolute',
+          position: 'fixed',
           top: 0,
           right: 0,
-          width: 360,
-          height: '100%',
+          width: 380,
+          height: '100vh',
           background: '#fff',
-          boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.18)',
           transform: selected ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.25s ease',
           overflowY: 'auto',
-          zIndex: 10,
+          zIndex: 1000,
           display: 'flex',
           flexDirection: 'column',
         }}>
