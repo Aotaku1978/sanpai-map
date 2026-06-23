@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import type { Facility, FacilitySite } from '@/types/facility'
@@ -55,6 +55,12 @@ export default function Home() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'sanpai' | 'tokubetsu'>('all')
   const [selectedWastes, setSelectedWastes] = useState<string[]>([])
   const [focusedFacilityId, setFocusedFacilityId] = useState<number | null>(null)
+  const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  useEffect(() => {
+    if (!selected) return
+    itemRefs.current.get(selected.pinId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected])
 
   useEffect(() => {
     supabase.from('facilities').select('*').then(({ data }) => {
@@ -209,6 +215,10 @@ export default function Home() {
               return (
                 <div
                   key={p.pinId}
+                  ref={(el) => {
+                    if (el) itemRefs.current.set(p.pinId, el)
+                    else itemRefs.current.delete(p.pinId)
+                  }}
                   onClick={() => {
                     setSelected(p)
                     setFocusedFacilityId(prev => prev === p.facility.id ? null : p.facility.id)
@@ -217,9 +227,9 @@ export default function Home() {
                     padding: '8px 14px',
                     borderBottom: '1px solid #f3f4f6',
                     cursor: 'pointer',
-                    background: isSelected ? '#f0fdf4' : isFocused ? '#f0fdf4' : '#fff',
+                    background: isSelected ? '#dcfce7' : isFocused ? '#f0fdf4' : '#fff',
                     fontSize: 12,
-                    borderLeft: isFocused ? '3px solid #1D9E75' : '3px solid transparent',
+                    borderLeft: isSelected ? '3px solid #1D9E75' : isFocused ? '3px solid #1D9E75' : '3px solid transparent',
                   }}
                 >
                   <div style={{ fontWeight: 500 }}>{p.facility.name}</div>
