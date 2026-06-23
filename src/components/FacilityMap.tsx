@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PinItem } from '@/app/page'
 
-type Props = { pins: PinItem[]; onSelect: (p: PinItem) => void }
+type Props = { pins: PinItem[]; onSelect: (p: PinItem) => void; panelOpen: boolean }
 
-export default function FacilityMap({ pins, onSelect }: Props) {
+export default function FacilityMap({ pins, onSelect, panelOpen }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layerGroupRef = useRef<any>(null)
@@ -43,6 +43,20 @@ export default function FacilityMap({ pins, onSelect }: Props) {
       setMapReady(false)
     }
   }, [])
+
+  // Preserve zoom/center when detail panel opens or closes
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return
+    const map = mapInstanceRef.current
+    const center = map.getCenter()
+    const zoom = map.getZoom()
+    // Wait for the 0.25s CSS transition to finish before resizing
+    const timer = setTimeout(() => {
+      map.invalidateSize()
+      map.setView(center, zoom, { animate: false })
+    }, 280)
+    return () => clearTimeout(timer)
+  }, [panelOpen, mapReady])
 
   // Update markers when pins or map readiness changes
   useEffect(() => {

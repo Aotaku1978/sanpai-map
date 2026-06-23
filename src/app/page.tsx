@@ -204,7 +204,7 @@ export default function Home() {
       </header>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         <div style={{ flex: 1 }}>
-          <FacilityMap pins={filtered} onSelect={setSelected} />
+          <FacilityMap pins={filtered} onSelect={setSelected} panelOpen={selected !== null} />
         </div>
         <div style={{ width: 260, borderLeft: '1px solid #e5e7eb', overflowY: 'auto', background: '#fff' }}>
           <div style={{ padding: '10px 14px', fontSize: 12, color: '#9ca3af', borderBottom: '1px solid #f3f4f6' }}>
