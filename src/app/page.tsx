@@ -23,7 +23,7 @@ type ProcessingCapacity = {
 
 type DetailCapacity = {
   id: number
-  facility_site_id: number
+  site_id: number
   waste_type: string
   capacity_value: number | null
   capacity_unit: string | null
@@ -78,12 +78,14 @@ export default function Home() {
       setDetailCapacities([])
       return
     }
+    const siteId = selected.site.id
     setDetailLoading(true)
     supabase
       .from('processing_capacities')
       .select('*')
-      .eq('facility_site_id', selected.site.id)
-      .then(({ data }) => {
+      .eq('site_id', siteId)
+      .then(({ data, error }) => {
+        console.log('processing_capacities site_id:', siteId, 'data:', data, 'error:', error)
         setDetailCapacities(data ?? [])
         setDetailLoading(false)
       })
@@ -272,10 +274,10 @@ export default function Home() {
           {selected && (
             <>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{selected.facility.name}</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'normal', wordBreak: 'break-all', overflowWrap: 'break-word' }}>{selected.facility.name}</div>
                   {selected.site?.site_name && (
-                    <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 500, marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 500, marginTop: 2, whiteSpace: 'normal', wordBreak: 'break-all', overflowWrap: 'break-word' }}>
                       🏭 {selected.site.site_name}
                     </div>
                   )}
