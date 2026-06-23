@@ -21,6 +21,15 @@ type ProcessingCapacity = {
   facility_sites?: { facility_id: number }
 }
 
+type DetailCapacity = {
+  id: number
+  facility_site_id: number
+  waste_type: string
+  capacity_value: number | null
+  capacity_unit: string | null
+  process_type: string | null
+}
+
 const WASTE_TYPES = [
   '廃プラスチック類',
   '金属くず',
@@ -55,11 +64,29 @@ export default function Home() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'sanpai' | 'tokubetsu'>('all')
   const [selectedWastes, setSelectedWastes] = useState<string[]>([])
   const [focusedFacilityId, setFocusedFacilityId] = useState<number | null>(null)
+  const [detailCapacities, setDetailCapacities] = useState<DetailCapacity[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     if (!selected) return
     itemRefs.current.get(selected.pinId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected])
+
+  useEffect(() => {
+    if (!selected?.site) {
+      setDetailCapacities([])
+      return
+    }
+    setDetailLoading(true)
+    supabase
+      .from('processing_capacities')
+      .select('*')
+      .eq('facility_site_id', selected.site.id)
+      .then(({ data }) => {
+        setDetailCapacities(data ?? [])
+        setDetailLoading(false)
+      })
   }, [selected])
 
   useEffect(() => {
@@ -173,33 +200,14 @@ export default function Home() {
           )}
         </div>
       </header>
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         <div style={{ flex: 1 }}>
           <FacilityMap pins={filtered} onSelect={setSelected} />
         </div>
         <div style={{ width: 260, borderLeft: '1px solid #e5e7eb', overflowY: 'auto', background: '#fff' }}>
-          {selected ? (
-            <div style={{ padding: 14 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{selected.facility.name}</div>
-              {selected.site && (
-                <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 500, marginBottom: 4 }}>
-                  🏭 {selected.site.site_name ?? '処理施設'}
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.8 }}>
-                <div>📍 {selected.site?.address ?? selected.facility.address}</div>
-                {selected.site?.site_type && <div>🔧 {selected.site.site_type}</div>}
-                <div>🔢 {selected.facility.license_no}</div>
-                <div>📋 {selected.facility.license_type}</div>
-                <div>📅 期限：{selected.facility.expire_date}</div>
-                <div>👤 {selected.facility.rep}</div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: 14, fontSize: 12, color: '#9ca3af' }}>
-              地図上のピンをクリックすると詳細が表示されます
-            </div>
-          )}
+          <div style={{ padding: '10px 14px', fontSize: 12, color: '#9ca3af', borderBottom: '1px solid #f3f4f6' }}>
+            ピンまたは施設名をクリックして詳細を表示
+          </div>
           {focusedFacilityId !== null && (
             <div
               style={{ padding: '6px 14px', fontSize: 11, color: '#1D9E75', borderBottom: '1px solid #e5e7eb', cursor: 'pointer', background: '#f0fdf4' }}
@@ -243,6 +251,85 @@ export default function Home() {
               )
             })}
           </div>
+        </div>
+
+        {/* スライドイン詳細パネル */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: 360,
+          height: '100%',
+          background: '#fff',
+          boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
+          transform: selected ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.25s ease',
+          overflowY: 'auto',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          {selected && (
+            <>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{selected.facility.name}</div>
+                  {selected.site?.site_name && (
+                    <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 500, marginTop: 2 }}>
+                      🏭 {selected.site.site_name}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelected(null)}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, color: '#9ca3af', lineHeight: 1, padding: 0, flexShrink: 0 }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', fontSize: 12, color: '#374151', lineHeight: 1.9 }}>
+                <div>📍 {selected.site?.address ?? selected.facility.address}</div>
+                {selected.site?.site_type && <div>🔧 {selected.site.site_type}</div>}
+                <div>🔢 {selected.facility.license_no}</div>
+                <div>📋 {selected.facility.license_type}</div>
+                <div>📅 許可期限：{selected.facility.expire_date}</div>
+                <div>👤 {selected.facility.rep}</div>
+              </div>
+
+              <div style={{ padding: '10px 16px', flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>受入品目・処理能力</div>
+                {detailLoading ? (
+                  <div style={{ fontSize: 12, color: '#9ca3af' }}>読み込み中...</div>
+                ) : !selected.site ? (
+                  <div style={{ fontSize: 12, color: '#9ca3af' }}>施設情報なし（本社座標）</div>
+                ) : detailCapacities.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#9ca3af' }}>データなし</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#f3f4f6' }}>
+                        <th style={{ padding: '5px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#374151' }}>品目</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#374151' }}>処理方法</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#374151' }}>能力</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailCapacities.map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '5px 8px', color: '#374151' }}>{c.waste_type}</td>
+                          <td style={{ padding: '5px 8px', color: '#6b7280' }}>{c.process_type ?? '—'}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151', whiteSpace: 'nowrap' }}>
+                            {c.capacity_value != null ? `${c.capacity_value} ${c.capacity_unit ?? ''}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
