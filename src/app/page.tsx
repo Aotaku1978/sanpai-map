@@ -54,6 +54,7 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'sanpai' | 'tokubetsu'>('all')
   const [selectedWastes, setSelectedWastes] = useState<string[]>([])
+  const [focusedFacilityId, setFocusedFacilityId] = useState<number | null>(null)
 
   useEffect(() => {
     supabase.from('facilities').select('*').then(({ data }) => {
@@ -111,7 +112,12 @@ export default function Home() {
     return result
   }, [facilities, sitesByFacilityId])
 
-  const filtered = useMemo(() => pins.filter((p) => {
+  const displayPins = useMemo(() => {
+    if (focusedFacilityId === null) return pins
+    return pins.filter(p => p.facility.id === focusedFacilityId)
+  }, [pins, focusedFacilityId])
+
+  const filtered = useMemo(() => displayPins.filter((p) => {
     if (search && !p.facility.name.includes(search)) return false
     if (typeFilter === 'sanpai' && p.facility.license_type?.includes('特別管理')) return false
     if (typeFilter === 'tokubetsu' && !p.facility.license_type?.includes('特別管理')) return false
@@ -120,7 +126,7 @@ export default function Home() {
       if (p.site && !qualifyingSiteIds.has(p.site.id)) return false
     }
     return true
-  }), [pins, search, typeFilter, qualifyingSiteIds])
+  }), [displayPins, search, typeFilter, qualifyingSiteIds])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'sans-serif' }}>
@@ -188,22 +194,44 @@ export default function Home() {
               地図上のピンをクリックすると詳細が表示されます
             </div>
           )}
+          {focusedFacilityId !== null && (
+            <div
+              style={{ padding: '6px 14px', fontSize: 11, color: '#1D9E75', borderBottom: '1px solid #e5e7eb', cursor: 'pointer', background: '#f0fdf4' }}
+              onClick={() => setFocusedFacilityId(null)}
+            >
+              ✕ 絞り込み解除（全件表示）
+            </div>
+          )}
           <div style={{ borderTop: '1px solid #e5e7eb' }}>
-            {filtered.map(p => (
-              <div
-                key={p.pinId}
-                onClick={() => setSelected(p)}
-                style={{ padding: '8px 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selected?.pinId === p.pinId ? '#f0fdf4' : '#fff', fontSize: 12 }}
-              >
-                <div style={{ fontWeight: 500 }}>{p.facility.name}</div>
-                {p.site?.site_name && (
-                  <div style={{ color: '#1D9E75', fontSize: 11 }}>{p.site.site_name}</div>
-                )}
-                <div style={{ color: '#6b7280', fontSize: 11 }}>
-                  {(p.site?.address ?? p.facility.address)?.replace(/東京都|埼玉県|神奈川県|宮城県|福岡県|大阪府/, '')}
+            {filtered.map(p => {
+              const isFocused = focusedFacilityId === p.facility.id
+              const isSelected = selected?.pinId === p.pinId
+              return (
+                <div
+                  key={p.pinId}
+                  onClick={() => {
+                    setSelected(p)
+                    setFocusedFacilityId(prev => prev === p.facility.id ? null : p.facility.id)
+                  }}
+                  style={{
+                    padding: '8px 14px',
+                    borderBottom: '1px solid #f3f4f6',
+                    cursor: 'pointer',
+                    background: isSelected ? '#f0fdf4' : isFocused ? '#f0fdf4' : '#fff',
+                    fontSize: 12,
+                    borderLeft: isFocused ? '3px solid #1D9E75' : '3px solid transparent',
+                  }}
+                >
+                  <div style={{ fontWeight: 500 }}>{p.facility.name}</div>
+                  {p.site?.site_name && (
+                    <div style={{ color: '#1D9E75', fontSize: 11 }}>{p.site.site_name}</div>
+                  )}
+                  <div style={{ color: '#6b7280', fontSize: 11 }}>
+                    {(p.site?.address ?? p.facility.address)?.replace(/東京都|埼玉県|神奈川県|宮城県|福岡県|大阪府/, '')}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
